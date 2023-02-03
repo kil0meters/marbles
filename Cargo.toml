@@ -8,8 +8,7 @@ edition = "2021"
 [dependencies]
 anyhow = "1.0.68"
 clap = { version = "4.1.4", features = ["derive"] }
-colored = "2.0.0"
 comfy-table = "6.1.4"
+crossterm = "0.26.0"
 dirs = "4.0.0"
-indicatif = "0.17.3"
 rand = "0.8.5"

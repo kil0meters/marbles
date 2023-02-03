@@ -2,20 +2,17 @@ use anyhow::Result;
 use clap::{Parser, Subcommand};
 use comfy_table::{presets::UTF8_FULL, CellAlignment, ColumnConstraint, Row, Table, Width::Fixed};
 use crossterm::{
-    cursor::{Hide, MoveDown, MoveUp, Show},
+    cursor::{Hide, MoveUp, Show},
     execute,
     style::Stylize,
     terminal::{Clear, ClearType},
 };
-use rand::{
-    seq::{IteratorRandom, SliceRandom},
-    thread_rng, Rng,
-};
+use rand::{seq::SliceRandom, thread_rng, Rng};
 use std::{
     collections::BTreeSet,
     env,
     fs::{self, File, OpenOptions},
-    io::{stdout, BufRead, BufReader, BufWriter, Write},
+    io::{stdin, stdout, BufRead, BufReader, BufWriter, Write},
     path::PathBuf,
     process::Command,
     thread,
@@ -59,11 +56,16 @@ fn main() -> Result<()> {
     match arguments.command {
         Commands::Add { name } => {
             println!(
-                "Added {} to {}",
+                "Adding {} to {}",
                 name.as_str().underlined(),
                 list_name.bold().green()
             );
-            list.add(name);
+
+            if list.add(name) {
+                println!("Item added.");
+            } else {
+                println!("Item not added.");
+            }
         }
         Commands::Remove { name } => {
             println!(
@@ -71,12 +73,11 @@ fn main() -> Result<()> {
                 name.as_str().underlined(),
                 list_name.bold().green()
             );
-            if !list.remove(&name) {
-                println!(
-                    "{} {} was not in list",
-                    "error:".bold().red(),
-                    name.underlined()
-                );
+
+            if list.remove(name) {
+                println!("Item removed");
+            } else {
+                println!("Item not removed");
             }
         }
         Commands::List => {
@@ -217,11 +218,59 @@ impl ItemList {
         Ok(())
     }
 
-    fn add(&mut self, item: String) {
-        self.items.insert(item);
+    fn add(&mut self, to_add: String) -> bool {
+        let to_add_lowercase = to_add.to_lowercase();
+
+        for item in self.items.iter() {
+            if strsim::jaro(&item.to_lowercase(), &to_add_lowercase) > 0.9 {
+                print!(
+                    "Item {} already in list. Are you sure you want to add it?\n{}",
+                    item.as_str().bold().underlined(),
+                    "[Y/n]: ".bold()
+                );
+
+                stdout().flush().unwrap();
+
+                let mut input = String::new();
+                stdin().read_line(&mut input).unwrap();
+                let input = input.trim();
+
+                if input != "y" && input != "Y" {
+                    return false;
+                }
+            }
+        }
+
+        self.items.insert(to_add)
     }
 
-    fn remove(&mut self, item: &String) -> bool {
-        self.items.remove(item)
+    fn remove(&mut self, mut to_remove: String) -> bool {
+        if self.items.remove(&to_remove) {
+            return true;
+        }
+
+        let to_remove_lowercase = to_remove.to_lowercase();
+        for item in self.items.iter() {
+            if strsim::jaro(&item.to_lowercase(), &to_remove_lowercase) > 0.9 {
+                print!(
+                    "Item has a similar name {}. Do you want to remove it?\n{}",
+                    item.as_str().bold().underlined(),
+                    "[Y/n]: ".bold()
+                );
+
+                stdout().flush().unwrap();
+
+                let mut input = String::new();
+                stdin().read_line(&mut input).unwrap();
+                let input = input.trim();
+
+                if input == "y" || input == "Y" {
+                    to_remove = item.clone();
+                    break;
+                }
+            }
+        }
+
+        self.items.remove(&to_remove)
     }
 }

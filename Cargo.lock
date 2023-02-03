@@ -252,6 +252,7 @@ dependencies = [
  "crossterm 0.26.0",
  "dirs",
  "rand",
+ "strsim",
 ]
 
 [[package]]
